@@ -21,23 +21,38 @@ def open_file_read_in_mem(file):
     return table
 
 def parse_table_to_mem(tab):
-    print("_parsed")
+    parsed_table = pd.DataFrame()
+    num_chunks = int(len(tab)/100)
+    num_v_chunk = int(len(tab.T)/3)
+    for i in range(0,num_chunks):
+        for j in range(0,num_v_chunk):
+            current_chunk = tab.iloc[0+(i*100):100+(i*100), 0+(j*3):3+(j*3)]
+            current_chunk.columns = ["datetime", "temp", "humid"]
+            parsed_table = pd.concat([parsed_table, current_chunk], axis=0)
+            parsed_table["temp2"] = parsed_table["temp"].str.extract(r'(\d+.\d+)').astype(float)
+            parsed_table["humid2"] = parsed_table["humid"].str.extract(r'(\d+.\d+)').astype(float)
+            p_table = parsed_table[["datetime", "temp2", "humid2"]]
+            p_table.columns = ["datetime", "temp", "humid"]
+    
+    return p_table
 
-def save_parsed_to_file(tab):
-    print("_saved")
+def save_parsed_to_file(out,tab):
+    tab.to_csv(out,index=False)
 
 def main(arg):
     if arg.inital_dir:
         file_list = get_files_from_dir(arg.inital_dir)
         for fi in file_list:
+            outname = fi[:-4]+"_parsed.csv"
             curr_tab = open_file_read_in_mem(fi)
-            print(curr_tab)
-        print(file_list)
+            p_tab = parse_table_to_mem(curr_tab)
+            save_parsed_to_file(outname,p_tab)
     if arg.infile:
+        outname = arg.infile[:-4]+"_parsed.csv"
         table = open_file_read_in_mem(arg.infile)
-        print(table)
-    if arg.outfile:
-        print("Your outfile name is: " + arg.outfile)
+        p_tab = parse_table_to_mem(table)
+        save_parsed_to_file(outname,p_tab)
+    
 
 
 if __name__ == "__main__":
@@ -48,7 +63,5 @@ if __name__ == "__main__":
                         help="name of the directory holding TSV files to be parsed", dest='inital_dir')
     parser.add_argument('-f', '--file', action='store', required=False,
                         help="name of the TSV file to be parsed", dest='infile')
-    parser.add_argument('-o', '--outname', action='store', required=False,
-                        help="name of the outfile, if no name is provided the original name will be appeneded", dest='outfile')
     args = parser.parse_args()
     main(args)
